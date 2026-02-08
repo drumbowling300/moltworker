@@ -159,141 +159,135 @@ fi
 echo "Starting configuration patching..."
 node << 'EOFPATCH'
 const fs = require('fs');
-
-const configPath = '/root/.openclaw/openclaw.json';
-console.log('Patching config at:', configPath);
-let config = {};
-
 try {
-    config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-} catch (e) {
-    console.log('Starting with empty config');
-}
+    const configPath = '/root/.openclaw/openclaw.json';
+    console.log('Patching config at:', configPath);
+    let config = {};
 
-config.gateway = config.gateway || {};
-config.channels = config.channels || {};
-
-// Gateway configuration
-config.gateway.port = 18789;
-config.gateway.mode = 'local';
-config.gateway.trustedProxies = ['10.1.0.0'];
-
-if (process.env.OPENCLAW_GATEWAY_TOKEN) {
-    config.gateway.auth = config.gateway.auth || {};
-    config.gateway.auth.token = process.env.OPENCLAW_GATEWAY_TOKEN;
-}
-
-if (process.env.OPENCLAW_DEV_MODE === 'true') {
-    config.gateway.controlUi = config.gateway.controlUi || {};
-    config.gateway.controlUi.allowInsecureAuth = true;
-}
-
-// Legacy AI Gateway base URL override:
-// ANTHROPIC_BASE_URL is picked up natively by the Anthropic SDK,
-// so we don't need to patch the provider config. Writing a provider
-// entry without a models array breaks OpenClaw's config validation.
-
-// AI Gateway model override (CF_AI_GATEWAY_MODEL=provider/model-id)
-// Adds a provider entry for any AI Gateway provider and sets it as default model.
-// Examples:
-//   workers-ai/@cf/meta/llama-3.3-70b-instruct-fp8-fast
-//   openai/gpt-4o
-//   anthropic/claude-sonnet-4-5
-if (process.env.CF_AI_GATEWAY_MODEL) {
-    const raw = process.env.CF_AI_GATEWAY_MODEL;
-    const slashIdx = raw.indexOf('/');
-    const gwProvider = raw.substring(0, slashIdx);
-    const modelId = raw.substring(slashIdx + 1);
-
-    const accountId = process.env.CF_AI_GATEWAY_ACCOUNT_ID;
-    const gatewayId = process.env.CF_AI_GATEWAY_GATEWAY_ID;
-    const apiKey = process.env.CLOUDFLARE_AI_GATEWAY_API_KEY;
-
-    let baseUrl;
-    if (accountId && gatewayId) {
-        baseUrl = 'https://gateway.ai.cloudflare.com/v1/' + accountId + '/' + gatewayId + '/' + gwProvider;
-        if (gwProvider === 'workers-ai') baseUrl += '/v1';
-    } else if (gwProvider === 'workers-ai' && process.env.CF_ACCOUNT_ID) {
-        baseUrl = 'https://api.cloudflare.com/client/v4/accounts/' + process.env.CF_ACCOUNT_ID + '/ai/v1';
+    try {
+        config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    } catch (e) {
+        console.log('Starting with empty config');
     }
 
-    if (baseUrl && apiKey) {
-        const isGoogle = gwProvider.includes('google');
-        const api = gwProvider === 'anthropic' ? 'anthropic-messages' : (isGoogle ? 'google-vertex-ai' : 'openai-completions');
-        const providerName = 'cf-ai-gw-' + gwProvider;
+    config.gateway = config.gateway || {};
+    config.channels = config.channels || {};
 
-        config.models = config.models || {};
-        config.models.providers = config.models.providers || {};
-        config.models.providers[providerName] = {
-            baseUrl: baseUrl,
-            apiKey: apiKey,
-            api: api,
-            models: [{ id: modelId, name: modelId, contextWindow: 1048576, maxTokens: 8192 }],
+    // Gateway configuration
+    config.gateway.port = 18789;
+    config.gateway.mode = 'local';
+    config.gateway.trustedProxies = ['10.1.0.0'];
+
+    if (process.env.OPENCLAW_GATEWAY_TOKEN) {
+        config.gateway.auth = config.gateway.auth || {};
+        config.gateway.auth.token = process.env.OPENCLAW_GATEWAY_TOKEN;
+    }
+
+    if (process.env.OPENCLAW_DEV_MODE === 'true') {
+        config.gateway.controlUi = config.gateway.controlUi || {};
+        config.gateway.controlUi.allowInsecureAuth = true;
+    }
+
+    // AI Gateway model override (CF_AI_GATEWAY_MODEL=provider/model-id)
+    if (process.env.CF_AI_GATEWAY_MODEL) {
+        const raw = process.env.CF_AI_GATEWAY_MODEL;
+        const slashIdx = raw.indexOf('/');
+        const gwProvider = raw.substring(0, slashIdx);
+        const modelId = raw.substring(slashIdx + 1);
+
+        const accountId = process.env.CF_AI_GATEWAY_ACCOUNT_ID;
+        const gatewayId = process.env.CF_AI_GATEWAY_GATEWAY_ID;
+        const apiKey = process.env.CLOUDFLARE_AI_GATEWAY_API_KEY;
+
+        let baseUrl;
+        if (accountId && gatewayId) {
+            baseUrl = 'https://gateway.ai.cloudflare.com/v1/' + accountId + '/' + gatewayId + '/' + gwProvider;
+            if (gwProvider === 'workers-ai') baseUrl += '/v1';
+        } else if (gwProvider === 'workers-ai' && process.env.CF_ACCOUNT_ID) {
+            baseUrl = 'https://api.cloudflare.com/client/v4/accounts/' + process.env.CF_ACCOUNT_ID + '/ai/v1';
+        }
+
+        if (baseUrl && apiKey) {
+            const isGoogle = gwProvider.includes('google');
+            const api = gwProvider === 'anthropic' ? 'anthropic-messages' : (isGoogle ? 'google-vertex-ai' : 'openai-completions');
+            const providerName = 'cf-ai-gw-' + gwProvider;
+
+            config.models = config.models || {};
+            config.models.providers = config.models.providers || {};
+            config.models.providers[providerName] = {
+                baseUrl: baseUrl,
+                apiKey: apiKey,
+                api: api,
+                models: [{ id: modelId, name: modelId, contextWindow: 1048576, maxTokens: 8192 }],
+            };
+            config.agents = config.agents || {};
+            config.agents.defaults = config.agents.defaults || {};
+            // Robustly set default model
+            if (typeof config.agents.defaults.model === 'string') {
+                config.agents.defaults.model = { primary: providerName + '/' + modelId };
+            } else {
+                config.agents.defaults.model = config.agents.defaults.model || {};
+                config.agents.defaults.model.primary = providerName + '/' + modelId;
+            }
+            console.log('AI Gateway model override: provider=' + providerName + ' model=' + modelId + ' via ' + baseUrl);
+        } else {
+            console.warn('CF_AI_GATEWAY_MODEL set but missing required config (account ID, gateway ID, or API key)');
+        }
+    }
+
+    // Telegram configuration
+    if (process.env.TELEGRAM_BOT_TOKEN) {
+        const dmPolicy = process.env.TELEGRAM_DM_POLICY || 'pairing';
+        config.channels.telegram = {
+            botToken: process.env.TELEGRAM_BOT_TOKEN,
+            enabled: true,
+            dmPolicy: dmPolicy,
         };
-        config.agents = config.agents || {};
-        config.agents.defaults = config.agents.defaults || {};
-        config.agents.defaults.model = { primary: providerName + '/' + modelId };
-        console.log('AI Gateway model override: provider=' + providerName + ' model=' + modelId + ' via ' + baseUrl);
-    } else {
-        console.warn('CF_AI_GATEWAY_MODEL set but missing required config (account ID, gateway ID, or API key)');
+        if (process.env.TELEGRAM_DM_ALLOW_FROM) {
+            config.channels.telegram.allowFrom = process.env.TELEGRAM_DM_ALLOW_FROM.split(',');
+        } else if (dmPolicy === 'open') {
+            config.channels.telegram.allowFrom = ['*'];
+        }
     }
-}
 
-// Telegram configuration
-// Overwrite entire channel object to drop stale keys from old R2 backups
-// that would fail OpenClaw's strict config validation (see #47)
-if (process.env.TELEGRAM_BOT_TOKEN) {
-    const dmPolicy = process.env.TELEGRAM_DM_POLICY || 'pairing';
-    config.channels.telegram = {
-        botToken: process.env.TELEGRAM_BOT_TOKEN,
-        enabled: true,
-        dmPolicy: dmPolicy,
-    };
-    if (process.env.TELEGRAM_DM_ALLOW_FROM) {
-        config.channels.telegram.allowFrom = process.env.TELEGRAM_DM_ALLOW_FROM.split(',');
-    } else if (dmPolicy === 'open') {
-        config.channels.telegram.allowFrom = ['*'];
+    // Discord configuration
+    if (process.env.DISCORD_BOT_TOKEN) {
+        const dmPolicy = process.env.DISCORD_DM_POLICY || 'pairing';
+        const dm = { policy: dmPolicy };
+        if (dmPolicy === 'open') {
+            dm.allowFrom = ['*'];
+        }
+        config.channels.discord = {
+            token: process.env.DISCORD_BOT_TOKEN,
+            enabled: true,
+            dm: dm,
+        };
     }
-}
 
-// Discord configuration
-// Discord uses a nested dm object: dm.policy, dm.allowFrom (per DiscordDmConfig)
-if (process.env.DISCORD_BOT_TOKEN) {
-    const dmPolicy = process.env.DISCORD_DM_POLICY || 'pairing';
-    const dm = { policy: dmPolicy };
-    if (dmPolicy === 'open') {
-        dm.allowFrom = ['*'];
+    // Slack configuration
+    if (process.env.SLACK_BOT_TOKEN && process.env.SLACK_APP_TOKEN) {
+        config.channels.slack = {
+            botToken: process.env.SLACK_BOT_TOKEN,
+            appToken: process.env.SLACK_APP_TOKEN,
+            enabled: true,
+        };
     }
-    config.channels.discord = {
-        token: process.env.DISCORD_BOT_TOKEN,
-        enabled: true,
-        dm: dm,
-    };
-}
 
-// Slack configuration
-if (process.env.SLACK_BOT_TOKEN && process.env.SLACK_APP_TOKEN) {
-    config.channels.slack = {
-        botToken: process.env.SLACK_BOT_TOKEN,
-        appToken: process.env.SLACK_APP_TOKEN,
-        enabled: true,
-    };
-}
-
-// Ensure default skills are imported
-try {
+    // Ensure default skills are imported
     const skills = [
         'https://raw.githubusercontent.com/OpenClaw/skills/main/chat/openai.md',
         'https://raw.githubusercontent.com/OpenClaw/skills/main/chat/anthropic.md'
     ];
     config.skills = config.skills || {};
-    config.skills.imports = Array.from(new Set([...(config.skills.imports || []), ...skills]));
-} catch (e) {
-    console.error('Failed to add skill imports:', e);
-}
+    const currentImports = Array.isArray(config.skills.imports) ? config.skills.imports : [];
+    config.skills.imports = Array.from(new Set([...currentImports, ...skills]));
 
-fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
-console.log('Configuration patched successfully to:', configPath);
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+    console.log('Configuration patched successfully to:', configPath);
+} catch (err) {
+    console.error('ERROR during patching:', err.stack || err);
+    process.exit(1);
+}
 EOFPATCH
 echo "Configuration patching finished"
 
