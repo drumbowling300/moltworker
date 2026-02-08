@@ -159,8 +159,8 @@ app.route('/cdp', cdp);
 app.use('*', async (c, next) => {
   const url = new URL(c.req.url);
 
-  // Skip validation for debug routes (they have their own enable check)
-  if (url.pathname.startsWith('/debug')) {
+  // Skip validation for debug routes and public API logs
+  if (url.pathname.startsWith('/debug') || url.pathname === '/api/debug-logs') {
     return next();
   }
 

@@ -57,6 +57,40 @@ publicRoutes.get('/api/status', async (c) => {
   }
 });
 
+// GET /api/debug-logs - Public log retrieval for emergency troubleshooting
+publicRoutes.get('/api/debug-logs', async (c) => {
+  const sandbox = c.get('sandbox');
+  try {
+    const processes = await sandbox.listProcesses();
+    const results = await Promise.all(
+      processes.map(async (p) => {
+        const logs = await p.getLogs();
+        return {
+          id: p.id,
+          command: p.command,
+          status: p.status,
+          exitCode: p.exitCode,
+          stdout: logs.stdout || '',
+          stderr: logs.stderr || '',
+        };
+      }),
+    );
+
+    // Also try to read onboard.log directly if it exists
+    let onboardLog = 'File not found';
+    try {
+      const onboardProc = await sandbox.startProcess('cat /root/onboard.log');
+      await new Promise(r => setTimeout(r, 500));
+      const onboardLogs = await onboardProc.getLogs();
+      onboardLog = onboardLogs.stdout || onboardLogs.stderr || 'Empty';
+    } catch { /* ignore */ }
+
+    return c.json({ processes: results, onboardLog });
+  } catch (err) {
+    return c.json({ error: err instanceof Error ? err.message : 'Unknown error' }, 500);
+  }
+});
+
 // GET /_admin/assets/* - Admin UI static assets (CSS, JS need to load for login redirect)
 // Assets are built to dist/client with base "/_admin/"
 publicRoutes.get('/_admin/assets/*', async (c) => {
