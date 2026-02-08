@@ -198,6 +198,18 @@ app.use('*', async (c, next) => {
 
 // Middleware: Cloudflare Access authentication for protected routes
 app.use('*', async (c, next) => {
+  const url = new URL(c.req.url);
+
+  // Skip auth for public routes and debug endpoints
+  if (
+    url.pathname === '/api/status' ||
+    url.pathname.startsWith('/debug/') ||
+    url.pathname === '/sandbox-health' ||
+    url.pathname.startsWith('/_admin/assets/')
+  ) {
+    return next();
+  }
+
   // Determine response type based on Accept header
   const acceptsHtml = c.req.header('Accept')?.includes('text/html');
   const middleware = createAccessMiddleware({
