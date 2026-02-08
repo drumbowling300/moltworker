@@ -145,8 +145,9 @@ app.use('*', async (c, next) => {
 // =============================================================================
 
 // Mount public routes first (before auth middleware)
-// Includes: /sandbox-health, /logo.png, /logo-small.png, /api/status, /_admin/assets/*
+// Includes: /sandbox-health, /logo.png, /logo-small.png, /api/status, /_admin/assets/*, /debug/*
 app.route('/', publicRoutes);
+app.route('/debug', debug);
 
 // Mount CDP routes (uses shared secret auth via query param, not CF Access)
 app.route('/cdp', cdp);
@@ -214,7 +215,6 @@ app.route('/api', api);
 app.route('/_admin', adminUi);
 
 // Mount debug routes (temporarily UNPROTECTED for troubleshooting)
-app.route('/debug', debug);
 
 // =============================================================================
 // CATCH-ALL: Proxy to Moltbot gateway
