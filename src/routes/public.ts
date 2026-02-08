@@ -57,6 +57,30 @@ publicRoutes.get('/api/status', async (c) => {
   }
 });
 
+// GET /api/logs-json - Retrieve gateway logs as JSON for the report
+publicRoutes.get('/api/logs-json', async (c) => {
+  const sandbox = c.get('sandbox');
+  try {
+    const process = await findExistingMoltbotProcess(sandbox);
+    const logs = process ? await process.getLogs() : { stdout: '', stderr: '' };
+
+    // Get onboard log
+    const onboardProc = await sandbox.startProcess('cat /root/onboard.log');
+    await new Promise(r => setTimeout(r, 500));
+    const onboardLogs = await onboardProc.getLogs();
+
+    return c.json({
+      gatewayLogs: {
+        stdout: logs.stdout || '',
+        stderr: logs.stderr || '',
+      },
+      onboardLog: onboardLogs.stdout || onboardLogs.stderr || 'No onboard log found',
+    });
+  } catch (err) {
+    return c.json({ error: err instanceof Error ? err.message : 'Unknown error' }, 500);
+  }
+});
+
 // GET /_admin/assets/* - Admin UI static assets (CSS, JS need to load for login redirect)
 // Assets are built to dist/client with base "/_admin/"
 publicRoutes.get('/_admin/assets/*', async (c) => {
