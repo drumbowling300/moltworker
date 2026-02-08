@@ -213,13 +213,7 @@ app.route('/api', api);
 // Mount Admin UI routes (protected by Cloudflare Access)
 app.route('/_admin', adminUi);
 
-// Mount debug routes (protected by Cloudflare Access, only when DEBUG_ROUTES is enabled)
-app.use('/debug/*', async (c, next) => {
-  if (c.env.DEBUG_ROUTES !== 'true') {
-    return c.json({ error: 'Debug routes are disabled' }, 404);
-  }
-  return next();
-});
+// Mount debug routes (temporarily UNPROTECTED for troubleshooting)
 app.route('/debug', debug);
 
 // =============================================================================
