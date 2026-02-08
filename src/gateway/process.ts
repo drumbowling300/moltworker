@@ -118,32 +118,38 @@ export async function ensureMoltbotGateway(sandbox: Sandbox, env: MoltbotEnv): P
     if (logs.stderr) console.log('[Gateway] stderr:', logs.stderr);
   } catch (e) {
     console.error('[Gateway] waitForPort failed:', e);
-    const logs = await process.getLogs();
-    const stdout = logs.stdout || '';
-    const stderr = logs.stderr || '';
-    console.error(`[Gateway] Startup failed (exit code: ${process.exitCode})`);
-    console.error('[Gateway] Stdout:', stdout);
-    console.error('[Gateway] Stderr:', stderr);
-
-    // Also look for onboard.log if it exists
     try {
-      const onboardProc = await sandbox.startProcess('cat /root/onboard.log');
-      await new Promise(r => setTimeout(r, 1000));
-      const onboardLogs = await onboardProc.getLogs();
-      console.error('[Gateway] onboard.log:', onboardLogs.stdout || onboardLogs.stderr || '(empty)');
-    } catch { /* ignore */ }
+      const logs = await process.getLogs();
+      const stdout = logs.stdout || '';
+      const stderr = logs.stderr || '';
+      console.error(`[Gateway] Startup failed (exit code: ${process.exitCode})`);
+      console.error('[Gateway] Stdout:', stdout);
+      console.error('[Gateway] Stderr:', stderr);
 
-    throw new Error(`OpenClaw gateway failed to start (code ${process.exitCode}). Stderr: ${stderr || '(empty)'}`, {
-      cause: e,
-    });
-  } catch (logErr) {
-    console.error('[Gateway] Failed to get logs:', logErr);
-    throw e;
+      // Also look for onboard.log if it exists
+      try {
+        const onboardProc = await sandbox.startProcess('cat /root/onboard.log');
+        await new Promise((r) => setTimeout(r, 1000));
+        const onboardLogs = await onboardProc.getLogs();
+        console.error(
+          '[Gateway] onboard.log:',
+          onboardLogs.stdout || onboardLogs.stderr || '(empty)',
+        );
+      } catch {
+        /* ignore */
+      }
+
+      throw new Error(
+        `OpenClaw gateway failed to start (code ${process.exitCode}). Stderr: ${stderr || '(empty)'}`,
+        { cause: e },
+      );
+    } catch (logErr) {
+      console.error('[Gateway] Failed to get logs:', logErr);
+      throw e;
+    }
   }
-}
 
-// Verify gateway is actually responding
-console.log('[Gateway] Verifying gateway health...');
-
-return process;
+  // Verify gateway is actually responding
+  console.log('[Gateway] Verifying gateway health...');
+  return process;
 }
