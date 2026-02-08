@@ -92,8 +92,13 @@ publicRoutes.get('/api/debug-logs', async (c) => {
       onboardLog = `Error reading file: ${err instanceof Error ? err.message : String(err)}`;
     }
 
+    // Log to console so it can be seen via wrangler tail
+    console.log('[DEBUG] Process list:', JSON.stringify(results, null, 2));
+    console.log('[DEBUG] Onboard log:', onboardLog);
+
     return c.json({ processes: results, onboardLog });
   } catch (err) {
+    console.error('[DEBUG] Error fetching logs:', err);
     return c.json({ error: err instanceof Error ? err.message : 'Unknown error' }, 500);
   }
 });
