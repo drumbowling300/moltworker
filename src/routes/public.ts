@@ -34,6 +34,13 @@ publicRoutes.get('/logo-small.png', (c) => {
 publicRoutes.get('/api/status', async (c) => {
   const sandbox = c.get('sandbox');
 
+  // Trigger gateway startup in background to help debugging
+  c.executionCtx.waitUntil(
+    ensureMoltbotGateway(sandbox, c.env).catch((err) => {
+      console.error('[Status] Auto-start failed:', err);
+    }),
+  );
+
   try {
     const process = await findExistingMoltbotProcess(sandbox);
     if (!process) {
@@ -46,7 +53,11 @@ publicRoutes.get('/api/status', async (c) => {
       await process.waitForPort(18789, { mode: 'tcp', timeout: 5000 });
       return c.json({ ok: true, status: 'running', processId: process.id });
     } catch {
-      return c.json({ ok: false, status: 'not_responding', processId: process.id });
+      // If not responding, get logs to see why
+      const logs = await process.getLogs();
+      console.log(`[Status] Process ${process.id} exists but not responding. Exit code: ${process.exitCode}`);
+      console.log(`[Status] Stderr: ${logs.stderr}`);
+      return c.json({ ok: false, status: 'not_responding', processId: process.id, exitCode: process.exitCode });
     }
   } catch (err) {
     return c.json({
