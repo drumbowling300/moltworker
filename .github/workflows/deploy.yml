@@ -15,8 +15,6 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Research OpenClaw CLI
-        run: npx openclaw onboard --help
       - name: Deploy to Cloudflare
         run: npm run deploy
         env:

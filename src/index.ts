@@ -145,9 +145,8 @@ app.use('*', async (c, next) => {
 // =============================================================================
 
 // Mount public routes first (before auth middleware)
-// Includes: /sandbox-health, /logo.png, /logo-small.png, /api/status, /_admin/assets/*, /debug/*
+// Includes: /sandbox-health, /logo.png, /logo-small.png, /api/status, /_admin/assets/*
 app.route('/', publicRoutes);
-app.route('/debug', debug);
 
 // Mount CDP routes (uses shared secret auth via query param, not CF Access)
 app.route('/cdp', cdp);
@@ -196,29 +195,14 @@ app.use('*', async (c, next) => {
   return next();
 });
 
-// Middleware: Cloudflare Access authentication for protected routes
-app.use('*', async (c, next) => {
-  const url = new URL(c.req.url);
-
-  // Skip auth for public routes and debug endpoints
-  if (
-    url.pathname === '/api/status' ||
-    url.pathname.startsWith('/debug/') ||
-    url.pathname === '/sandbox-health' ||
-    url.pathname.startsWith('/_admin/assets/')
-  ) {
-    return next();
+// Mount debug routes (protected by Cloudflare Access, only when DEBUG_ROUTES is enabled)
+app.use('/debug/*', async (c, next) => {
+  if (c.env.DEBUG_ROUTES !== 'true') {
+    return c.json({ error: 'Debug routes are disabled' }, 404);
   }
-
-  // Determine response type based on Accept header
-  const acceptsHtml = c.req.header('Accept')?.includes('text/html');
-  const middleware = createAccessMiddleware({
-    type: acceptsHtml ? 'html' : 'json',
-    redirectOnMissing: acceptsHtml,
-  });
-
-  return middleware(c, next);
+  return next();
 });
+app.route('/debug', debug);
 
 // Mount API routes (protected by Cloudflare Access)
 app.route('/api', api);

@@ -219,7 +219,8 @@ if (process.env.CF_AI_GATEWAY_MODEL) {
     }
 
     if (baseUrl && apiKey) {
-        const api = gwProvider === 'anthropic' ? 'anthropic-messages' : 'openai-completions';
+        const isGoogle = gwProvider.includes('google');
+        const api = gwProvider === 'anthropic' ? 'anthropic-messages' : (isGoogle ? 'google-vertex-ai' : 'openai-completions');
         const providerName = 'cf-ai-gw-' + gwProvider;
 
         config.models = config.models || {};
@@ -228,7 +229,7 @@ if (process.env.CF_AI_GATEWAY_MODEL) {
             baseUrl: baseUrl,
             apiKey: apiKey,
             api: api,
-            models: [{ id: modelId, name: modelId, contextWindow: 131072, maxTokens: 8192 }],
+            models: [{ id: modelId, name: modelId, contextWindow: 1048576, maxTokens: 8192 }],
         };
         config.agents = config.agents || {};
         config.agents.defaults = config.agents.defaults || {};
@@ -278,6 +279,18 @@ if (process.env.SLACK_BOT_TOKEN && process.env.SLACK_APP_TOKEN) {
         appToken: process.env.SLACK_APP_TOKEN,
         enabled: true,
     };
+}
+
+// Ensure default skills are imported
+try {
+    const skills = [
+        'https://raw.githubusercontent.com/OpenClaw/skills/main/chat/openai.md',
+        'https://raw.githubusercontent.com/OpenClaw/skills/main/chat/anthropic.md'
+    ];
+    config.skills = config.skills || {};
+    config.skills.imports = Array.from(new Set([...(config.skills.imports || []), ...skills]));
+} catch (e) {
+    console.error('Failed to add skill imports:', e);
 }
 
 fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
