@@ -291,6 +291,15 @@ try {
 EOFPATCH
 echo "Configuration patching finished"
 
+echo "Inspecting patched configuration..."
+if [ -f "$CONFIG_FILE" ]; then
+    echo "Config file exists: $(ls -lh $CONFIG_FILE)"
+    # Redact sensitive info if printing
+    # cat "$CONFIG_FILE" | sed 's/"apiKey": "[^"]*"/"apiKey": "REDACTED"/g' | sed 's/"token": "[^"]*"/"token": "REDACTED"/g'
+else
+    echo "ERROR: Config file $CONFIG_FILE not found after patching!"
+fi
+
 # ============================================================
 # START GATEWAY
 # ============================================================
