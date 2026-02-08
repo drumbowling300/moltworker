@@ -149,9 +149,9 @@ if [ ! -f "$CONFIG_FILE" ]; then
         --gateway-bind lan \
         --skip-channels \
         --skip-skills \
-        --skip-health
+        --skip-health > /root/onboard.log 2>&1 || { echo "Onboard failed! See /root/onboard.log"; exit 1; }
 
-    echo "Onboard completed"
+    echo "Onboard completed (logged to /root/onboard.log)"
 else
     echo "Using existing config"
 fi
@@ -172,6 +172,7 @@ try {
 
     config.gateway = config.gateway || {};
     config.channels = config.channels || {};
+    config.policies = config.policies || {}; // Initialize policies to avoid undefined refs
 
     // Gateway configuration
     config.gateway.port = 18789;

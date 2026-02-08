@@ -80,10 +80,17 @@ publicRoutes.get('/api/debug-logs', async (c) => {
     let onboardLog = 'File not found';
     try {
       const onboardProc = await sandbox.startProcess('cat /root/onboard.log');
-      await new Promise(r => setTimeout(r, 500));
+      // Wait a bit for the command to finish
+      let waitAttempts = 0;
+      while (onboardProc.status === 'running' && waitAttempts < 5) {
+        await new Promise(r => setTimeout(r, 200));
+        waitAttempts++;
+      }
       const onboardLogs = await onboardProc.getLogs();
       onboardLog = onboardLogs.stdout || onboardLogs.stderr || 'Empty';
-    } catch { /* ignore */ }
+    } catch (err) {
+      onboardLog = `Error reading file: ${err instanceof Error ? err.message : String(err)}`;
+    }
 
     return c.json({ processes: results, onboardLog });
   } catch (err) {
