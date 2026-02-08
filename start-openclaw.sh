@@ -17,8 +17,14 @@ CONFIG_DIR="/root/.openclaw"
 CONFIG_FILE="$CONFIG_DIR/openclaw.json"
 BACKUP_DIR="/data/moltbot"
 
+echo "=== Moltbot Startup Diagnostics ==="
+echo "Node version: $(node --version)"
+echo "NPM version: $(npm --version)"
+echo "OpenClaw path: $(which openclaw || echo 'not found')"
 echo "Config directory: $CONFIG_DIR"
 echo "Backup directory: $BACKUP_DIR"
+echo "Current user: $(whoami)"
+echo "===================================="
 
 mkdir -p "$CONFIG_DIR"
 
@@ -150,14 +156,7 @@ else
     echo "Using existing config"
 fi
 
-# ============================================================
-# PATCH CONFIG (channels, gateway auth, trusted proxies)
-# ============================================================
-# openclaw onboard handles provider/model config, but we need to patch in:
-# - Channel config (Telegram, Discord, Slack)
-# - Gateway token auth
-# - Trusted proxies for sandbox networking
-# - Base URL override for legacy AI Gateway path
+echo "Starting configuration patching..."
 node << 'EOFPATCH'
 const fs = require('fs');
 
@@ -294,8 +293,9 @@ try {
 }
 
 fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
-console.log('Configuration patched successfully');
+console.log('Configuration patched successfully to:', configPath);
 EOFPATCH
+echo "Configuration patching finished"
 
 # ============================================================
 # START GATEWAY
