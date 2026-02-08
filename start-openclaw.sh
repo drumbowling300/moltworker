@@ -142,16 +142,22 @@ if [ ! -f "$CONFIG_FILE" ]; then
         AUTH_ARGS="--auth-choice openai-api-key --openai-api-key $OPENAI_API_KEY"
     fi
 
-    openclaw onboard --non-interactive --accept-risk \
+    echo "Onboard command trace: openclaw onboard --non-interactive --accept-risk --mode local --gateway-port 18789 --gateway-bind lan --skip-channels --skip-skills --skip-health"
+    
+    # Run onboard but capture errors
+    if ! openclaw onboard --non-interactive --accept-risk \
         --mode local \
         $AUTH_ARGS \
         --gateway-port 18789 \
         --gateway-bind lan \
         --skip-channels \
         --skip-skills \
-        --skip-health > /root/onboard.log 2>&1 || { echo "Onboard failed! See /root/onboard.log"; exit 1; }
-
-    echo "Onboard completed (logged to /root/onboard.log)"
+        --skip-health > /root/onboard.log 2>&1; then
+        echo "WARNING: Onboard command failed with exit code $?. Check /root/onboard.log"
+        cat /root/onboard.log
+    else
+        echo "Onboard completed successfully"
+    fi
 else
     echo "Using existing config"
 fi
